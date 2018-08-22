@@ -769,9 +769,9 @@ extern int          tbg_packcnt (TABAG *bag);
 extern SUPP         tbg_occur   (TABAG *bag, const ITEM *items, ITEM n);
 extern int          tbg_ipwgt   (TABAG *bag, int mode);
 
-#ifndef NDEBUG
+//#ifndef NDEBUG
 extern void         tbg_show    (TABAG *bag);
-#endif
+//#endif
 
 /*----------------------------------------------------------------------
   Surrogate Generation Functions

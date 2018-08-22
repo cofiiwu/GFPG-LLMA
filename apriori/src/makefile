@@ -28,11 +28,11 @@ UTILDIR  = ../../util/src
 MATHDIR  = ../../math/src
 TRACTDIR = ../../tract/src
 
-CC       = gcc -std=c99
-# CC       = g++
+#CC       = gcc -std=c99
+ CC       = g++
 CFBASE   = -Wall -Wextra -Wno-unused-parameter -Wconversion \
-           -pedantic -c $(ADDFLAGS)
-CFLAGS   = $(CFBASE) -DNDEBUG -O3 -funroll-loops
+           -pedantic -c $(ADDFLAGS) 
+CFLAGS   = $(CFBASE) -DNDEBUG -O3 -funroll-loops -fpermissive
 # CFLAGS   = $(CFBASE) -DNDEBUG -O3 -funroll-loops -DALIGN8
 # CFLAGS   = $(CFBASE) -DNDEBUG -O3 -funroll-loops -DBENCH
 # CFLAGS   = $(CFBASE) -g
@@ -40,7 +40,7 @@ CFLAGS   = $(CFBASE) -DNDEBUG -O3 -funroll-loops
 # CFLAGS   = $(CFBASE) -g -DALIGN8
 INCS     = -I$(UTILDIR) -I$(MATHDIR) -I$(TRACTDIR)
 
-LD       = gcc
+LD       = g++
 LDFLAGS  = $(ADDFLAGS)
 LIBS     = -lm
 

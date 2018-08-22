@@ -667,6 +667,7 @@ ISREPORT* isr_createx (ITEMBASE *base, ITEM max)
     rep->nsum += m;             /* sum name size and find maximum */
     if (m > rep->nmax) rep->nmax = m;
     rep->inames[i] = name;      /* store the (formatted) item name */
+    //printf("OI[ %s ]-> %d\n",name,i);
     if (!name) { isr_delete(rep, 0); return NULL; }
   }                             /* check for proper name copying */
   #endif

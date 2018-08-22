@@ -87,7 +87,14 @@
 #include <math.h>
 #include <time.h>
 #include <assert.h>
+#include <sys/time.h>
 #include "memsys.h"
+#include <cuda_runtime_api.h>
+#include <cuda.h>
+#include <pthread.h>
+#include <inttypes.h>
+#include <sys/queue.h>
+
 #ifndef ISR_PATSPEC
 #define ISR_PATSPEC
 #endif
@@ -149,6 +156,8 @@
 
 #define SEC_SINCE(t)  ((double)(clock()-(t)) /(double)CLOCKS_PER_SEC)
 
+
+
 /*----------------------------------------------------------------------
   Type Definitions
 ----------------------------------------------------------------------*/
@@ -174,27 +183,7 @@ typedef struct {                /* --- frequent pattern tree --- */
   FPHEAD   heads[1];            /* header table (item lists) */
 } FPTREE;                       /* (frequent pattern tree) */
 
-typedef struct csnode {         /* --- children/sibling tree node --- */
-  ITEM          id;             /* item/head identifier */
-  SUPP          supp;           /* support (weight of transactions) */
-  struct csnode *children;      /* list of child nodes */
-  struct csnode *sibling;       /* successor node in sibling list */
-  struct csnode *parent;        /* parent node (preceding item) */
-  struct csnode *succ;          /* successor node with same item */
-} CSNODE;                       /* (children/sibling tree node) */
 
-typedef struct {                /* --- ch./sibling tree node list --- */
-  ITEM     item;                /* associated item (item base code) */
-  SUPP     supp;                /* support (weight of transactions) */
-  CSNODE   *list;               /* list of nodes with this item */
-} CSHEAD;                       /* (children/sibling tree head) */
-
-typedef struct {                /* --- children/sibling tree --- */
-  ITEM     cnt;                 /* number of items / heads */
-  MEMSYS   *mem;                /* memory system for the nodes */
-  CSNODE   root;                /* root node connecting trees */
-  CSHEAD   heads[1];            /* header table (item lists) */
-} CSTREE;                       /* (children/sibling tree) */
 
 typedef struct tdnode {         /* --- top-down tree node --- */
   ITEM          id;             /* item/head identifier */
@@ -278,7 +267,7 @@ static double   *border = NULL; /* support border for filtering */
 /*----------------------------------------------------------------------
   Auxiliary Functions for Debugging
 ----------------------------------------------------------------------*/
-#ifndef NDEBUG
+//#ifndef NDEBUG
 
 static void indent (int k)
 { while (--k >= 0) printf("   "); }
@@ -373,7 +362,7 @@ static void tdt_show (TDTREE *tdt, ITEMBASE *base, int ind)
   indent(ind); printf("------\n");  /* show the nodes recursively */
 }  /* tdt_show() */
 
-#endif  /* #ifndef NDEBUG */
+//#endif  /* #ifndef NDEBUG */
 /*----------------------------------------------------------------------
   Frequent Pattern Growth (simple nodes with only successor/parent)
 ----------------------------------------------------------------------*/
@@ -835,6 +824,19 @@ static int add_cmplx (CSTREE *cst, const ITEM *ids, ITEM n, SUPP supp)
   c->sibling = *p;              /* insert the created node into */
   c->succ    = cst->heads[i].list;      /* the sibling list and */
   cst->heads[i].list = node = *p = c;   /* into the item list */
+  cst->heads[i].cnt++;
+  c->lv = c->parent ->lv + 1;
+
+  if(c->lv > cst->real_max_depth)
+  	cst->real_max_depth = c->lv ;
+  if(c->lv > cst->heads[i].max_depth)
+	  cst->heads[i].max_depth = c->lv;
+  c->lv_link = cst->lvhead[c->lv].list;
+  cst->lvhead[c->lv].list = c;
+  cst->lvhead[c->lv].cnt++;
+  cst->num_fpnode++;
+  //printf("add item:%d at lv:%d after item:%d\n", c->id, c->lv, c->parent->id);
+//  printf("[%d] add item:%d at lv:%d (#:%d)after item:%d(%p) num_node:%u\n", n,c->id, c->lv,  cst->lvhead[c->lv].cnt,c->parent->id,c->parent , cst->num_fpnode);
   while (--n >= 0) {            /* traverse the rest of the items */
     node->children = c = (CSNODE*)ms_alloc(cst->mem);
     if (!c) return -1;          /* create a new prefix tree node */
@@ -843,7 +845,19 @@ static int add_cmplx (CSTREE *cst, const ITEM *ids, ITEM n, SUPP supp)
     c->parent  = node;          /* connect to the parent node */
     c->sibling = NULL;          /* there are no siblings yet */
     c->succ    = cst->heads[i].list;
+    c->lv = c->parent ->lv + 1;
+    if(c->lv > cst->real_max_depth)
+    	cst->real_max_depth = c->lv ;
+    if(c->lv > cst->heads[i].max_depth)
+  	  cst->heads[i].max_depth = c->lv;
+
+    c->lv_link = cst->lvhead[c->lv].list;
+    cst->lvhead[c->lv].list = c;
+    cst->lvhead[c->lv].cnt++;
+    cst->num_fpnode++;
+//    printf("[%d] add item:%d at lv:%d (#:%d)after item:%d(%p) num_node:%u\n", n,c->id, c->lv,  cst->lvhead[c->lv].cnt,c->parent->id,c->parent , cst->num_fpnode);
     cst->heads[i].list = node = c;
+    cst->heads[i].cnt++;
   }                             /* insert node into the item list */
   node->children = NULL;        /* last created node is a leaf */
   return 1;                     /* return that nodes were added */
@@ -990,8 +1004,10 @@ static int add_reord (CSTREE *cst, ITEM *flags, ITEM n, SUPP supp)
   return 1;                     /* return that nodes were added */
 }  /* add_reord() */
 
-/*--------------------------------------------------------------------*/
 
+
+
+/*--------------------------------------------------------------------*/
 static int proj_reord (CSTREE *dst, CSTREE *src, ITEM id, RECDATA *rd)
 {                               /* --- project a freq. pattern tree */
   int    r;                     /* result of function calls */
@@ -1167,8 +1183,141 @@ static int rec_cmplx (CSTREE *cst, RECDATA *rd)
     free(proj); ms_pop(cst->mem); }
   return r;                     /* return the error status */
 }  /* rec_cmplx() */
-
 /*--------------------------------------------------------------------*/
+
+
+
+static void CheckCudaErrorAux (const char *file, unsigned line, const char *statement, cudaError_t err)
+{
+	if (err == cudaSuccess)
+		return;
+	printf("%s  returned %s(%d), %s , line:%d ",statement,cudaGetErrorString(err),err,file, line);
+	exit (1);
+}
+
+#define CUDA_CHECK_RETURN(value) CheckCudaErrorAux(__FILE__,__LINE__, #value, value)
+
+
+
+
+TAILQ_HEAD(tailhead, bfs_qentry) head = TAILQ_HEAD_INITIALIZER(head);
+
+struct bfs_qentry {
+	CSNODE *node;
+	TAILQ_ENTRY(bfs_qentry) entries;
+};
+
+
+void *cst_to_gputree(CSTREE *cst){
+
+	cst->gtree_size = (((cst->cnt+1)+2)&~1) *sizeof(int) + cst->num_fpnode * sizeof(GPU_TREE_NODE);
+	unsigned int *gtree_item_base;
+
+	struct timeval tree_start, tree_end,treeconv_start, treeconv_end,dummy_start,dummy_end;
+	gettimeofday (&dummy_start, NULL);
+	int *dummy;
+	CUDA_CHECK_RETURN(cudaMallocHost((void**) &(dummy) , 4));
+	gettimeofday (&dummy_end, NULL);
+	{
+		    unsigned int dummy_time;
+		    dummy_time = (dummy_end.tv_sec - dummy_start.tv_sec) * 1000000;
+		    dummy_time += dummy_end.tv_usec - dummy_start.tv_usec;
+		    printf("dummy alloc %d ms\n",dummy_time/1000);
+	}
+
+
+	gettimeofday (&tree_start, NULL);
+	CUDA_CHECK_RETURN(cudaMallocHost((void**) &(gtree_item_base) , cst->gtree_size));
+
+	gettimeofday (&tree_end, NULL);
+	{
+	    unsigned int tree_time, mining_time;
+	    tree_time = (tree_end.tv_sec - tree_start.tv_sec) * 1000000;
+	    tree_time += tree_end.tv_usec - tree_start.tv_usec;
+	    printf("gtree galloc %d ms\n",tree_time/1000);
+	}
+	gettimeofday (&treeconv_start, NULL);
+	int *rec_cnt = malloc(sizeof(int)*cst->cnt);
+	GPU_TREE_NODE* gtree_item= (GPU_TREE_NODE*)(gtree_item_base +  (((cst->cnt+1)+2)&~1));
+	cst->h_gtree = (void*) gtree_item;
+	cst->h_gtree_itembase = gtree_item_base;
+	gtree_item_base[0]=0;
+	//the lasr element of cltree_index_pos is dummy for end of list
+	for(int i=1;i<=cst->cnt;i++){
+		gtree_item_base[i] = gtree_item_base[i-1] + cst->heads[i-1].cnt;
+		//printf("gtree_item_base[%d]=%d\n",i, gtree_item_base[i]);
+	}
+
+	memset(rec_cnt, 0 ,sizeof(int)*cst->cnt);
+	CSNODE *node;
+	CSNODE **p;
+	ITEM pid;
+	node = &cst->root;
+	p = &(node->children);
+	pid = cst->root.id;
+	while (*p) {
+		ITEM id = (*p)->id;
+		unsigned int base = gtree_item_base[id];
+		unsigned int reclen = rec_cnt[id];
+		gtree_item[base + reclen].pitem = ROOT_ITEM;
+		gtree_item[base + reclen].index = 0;
+		gtree_item[base + reclen].freq = (*p)->supp;
+		(*p)->gnidx = rec_cnt[id]++;
+	//	printf("rec(%d, %d)=(%d, - )\n", id,(*p)->gnidx , pid);
+
+		p = &(*p)->sibling;
+	}
+
+	for(int i=0; i< cst->cnt;i++){
+		node = cst->heads[i].list;
+		ITEM pid = node->id;
+		p = &(node->children);
+		while(node){
+			p = &(node->children);
+			while (*p) {
+				ITEM id = (*p)->id;
+				unsigned int base = gtree_item_base[id];
+				unsigned int reclen = rec_cnt[id];
+				assert(pid < ((unsigned long long)1)<<GPUTREE_ITEM_BITS);
+				gtree_item[base + reclen].pitem = pid;
+				assert(node->gnidx < ((unsigned long long)1)<<GPUTREE_INDEX_BITS);
+				gtree_item[base + reclen].index = node->gnidx;
+				assert(node->supp < ((unsigned long long)1<<GPUTREE_FREQ_BITS));
+				gtree_item[base + reclen].freq = (*p)->supp;
+				(*p)->gnidx = rec_cnt[id]++;
+				//printf("rec(%d, %d)=(%d,%d)\n", id,(*p)->gnidx , node->id, node->gnidx);
+				p = &(*p)->sibling;
+			}
+			node = node->succ;//next node of the item
+		}
+	}
+	gettimeofday (&treeconv_end, NULL);
+	{
+		    unsigned int tree_time;
+		    tree_time = (treeconv_end.tv_sec - treeconv_start.tv_sec) * 1000000;
+		    tree_time += treeconv_end.tv_usec - treeconv_start.tv_usec;
+		    printf("convert %d ms\n",tree_time/1000);
+	}
+
+/*
+	for(int i=0; i< cst->cnt;i++){
+		printf("\n%d: ",i);
+		unsigned int base = gtree_item_base[i];
+		for(int j =0; j<rec_cnt[i];j++){
+			printf("<%d>[%u, %u, %u], ",j, gtree_item[base+j].pitem, gtree_item[base+j].index, gtree_item[base+j].freq);
+		}
+
+	}
+
+*/
+}
+
+int *item_fpa_buf;
+
+
+
+
+
 
 int fpg_cmplx (TABAG *tabag, int target, SUPP smin, int mode,
                ISREPORT *report)
@@ -1184,7 +1333,8 @@ int fpg_cmplx (TABAG *tabag, int target, SUPP smin, int mode,
   CSTREE     *cst;              /* created frequent pattern tree */
   CSHEAD     *h;                /* to traverse the item heads */
   RECDATA    rd;                /* structure for recursive search */
-
+  struct timeval tree_start, tree_end, mining_done, cuda_done,merge_end;
+  gettimeofday (&tree_start, NULL);
   assert(tabag && report);      /* check the function arguments */
   #ifdef VISITED                /* if to report visited search node */
   fprintf(stderr, "\n");        /* start a new output line */
@@ -1207,10 +1357,13 @@ int fpg_cmplx (TABAG *tabag, int target, SUPP smin, int mode,
   rd.map = d = s+k;             /* note item map and set buffer */
   rd.cis = (SUPP*)(d+k);        /* and the item support array */
   for (i = m = 0; i < k; i++) { /* build the item identifier map */
+//	  printf("f[%d]=%d\n",i,f[i]);
     if (f[i] <  rd.smin) { d[i] = -1;                        continue; }
     if (f[i] >= pex)     { d[i] = -1; isr_addpex(report, i); continue; }
     d[i] = m; s[m++] = i;       /* eliminate infrequent items and */
   }                             /* collect perfect extension items */
+  //d[item]=rd.map[item]--->FI
+  //s[FIidx] = rd.set[Fiidx] --->Item
   if (m <= 0) {                 /* check whether there are items left */
     r = isr_report(report); free(rd.set); return r; }
   cst = (CSTREE*)malloc(sizeof(CSTREE) +(size_t)(m-1) *sizeof(CSHEAD));
@@ -1222,8 +1375,20 @@ int fpg_cmplx (TABAG *tabag, int target, SUPP smin, int mode,
   cst->root.supp    = 0;        /* and initialize the root node */
   cst->root.sibling = cst->root.children = NULL;
   cst->root.succ    = cst->root.parent   = NULL;
+  cst->root.lv      = 0;
+  cst->root.lv_link = NULL;
+  cst->real_max_depth = 0;
+  cst->max_depth = m+1; //root + all FIs in a line
+  cst->lvhead = (CSLVHEAD*) malloc(sizeof(CSLVHEAD)*cst->max_depth);
+  memset(cst->lvhead, 0, sizeof(CSLVHEAD)*cst->max_depth);
+  cst->lvhead[0].list = &cst->root;
+  cst->lvhead[0].cnt = 1;
+  cst->num_fpnode = 0;
+
   for (i = 0; i < k; i++) {     /* initialize the header table */
-    h = cst->heads+i; h->supp = f[h->item = s[i]]; h->list = NULL; }
+    h = cst->heads+i; h->supp = f[h->item = s[i]]; h->list = NULL; h->cnt = 0;
+    h->max_depth = 0;
+  }
   rd.fim16 = NULL;              /* default: no 16-items machine */
   if (mode & FPG_FIM16) {       /* if to use a 16-items machine */
     rd.fim16 = m16_create(rd.dir, rd.smin, report);
@@ -1234,14 +1399,48 @@ int fpg_cmplx (TABAG *tabag, int target, SUPP smin, int mode,
     t = tbg_tract(tabag, j);    /* collect the non-eliminated items */
     for (k = 0, p = ta_items(t); *p > TA_END; p++)
       if ((m = d[*p]) >= 0) s[k++] = m;
-    r = add_cmplx(cst, s, k, ta_wgt(t));
+    r = add_cmplx(cst, s, k, ta_wgt(t)); //k: len(trans)
     if (r < 0) break;           /* add the reduced transaction */
   }                             /* to the frequent pattern tree */
+
+  cst_to_gputree(cst);
+  gettimeofday (&tree_end, NULL);
+  {
+    unsigned int tree_time, mining_time;
+    tree_time = (tree_end.tv_sec - tree_start.tv_sec) * 1000000;
+    tree_time += tree_end.tv_usec - tree_start.tv_usec;
+    printf("Create GPU tree %d ms\n",tree_time/1000);
+  }
   if (r >= 0) {                 /* if a frequent pattern tree */
     rd.report = report;         /* has successfully been built, */
     r = rec_cmplx(cst, &rd);    /* find freq. item sets recursively */
     if (r >= 0) r = isr_report(report);
   }                             /* report the empty item set */
+
+  gettimeofday (&mining_done, NULL);
+
+  {
+    unsigned int mining_time;
+    mining_time = (mining_done.tv_sec - tree_end.tv_sec) * 1000000;
+    mining_time += mining_done.tv_usec - tree_end.tv_usec;
+    printf("mining time %d ms\n",mining_time/1000);
+  }
+  extern long long cuda_main(CSTREE *, SUPP );
+  long long res = cuda_main(cst, smin);
+ printf("res:%llx\n",res);
+ extern int** h_pattern_ans;
+  gettimeofday (&cuda_done, NULL);
+
+  {
+    unsigned int cuda_time,merge_time, xxtime;
+    cuda_time = (cuda_done.tv_sec - mining_done.tv_sec) * 1000000;
+    cuda_time += cuda_done.tv_usec - mining_done.tv_usec;
+
+    printf("cuda time %d ms \n",cuda_time/1000);
+
+  }
+
+
   if (rd.fim16)                 /* if a 16-items machine was used, */
     m16_delete(rd.fim16);       /* delete the 16-items machine */
   ms_delete(cst->mem);          /* delete the memory mgmt. system */
@@ -1864,6 +2063,7 @@ int fpg_data (TABAG *tabag, int target, SUPP smin, ITEM zmin,
     tbg_filter(tabag, zmin, NULL, 0);
   tbg_itsort(tabag, +1, 0);     /* sort items in transactions and */
   tbg_sort  (tabag, +1, 0);     /* sort the trans. lexicographically */
+  //tbg_show(tabag);
   tbg_reduce(tabag, 0);         /* reduce transactions to unique ones */
   if (pack > 0)                 /* if to use a 16-items machine, */
     tbg_pack(tabag, pack);      /* pack the most frequent items */
@@ -2504,12 +2704,13 @@ int main (int argc, char *argv[])
     error(E_NOMEM);             /* and set up the item set reporter */
   k = fpgrowth(tabag, target, smin, body, conf,
                eval, agg, thresh, prune, algo, mode, 0, report);
+  printf("XXXX\n");
   if (k) error(k);              /* find frequent item sets */
   if (stats)                    /* print item set statistics */
     isr_prstats(report, stdout, 0);
   if (isr_close(report) != 0)   /* close the output file */
     error(E_FWRITE, isr_name(report));
-
+printf("XXXX\n");
   /* --- write pattern spectrum --- */
   if (fn_psp) {                 /* if to write a pattern spectrum */
     CLOCK(t);                   /* start timer, create table write */
@@ -2526,10 +2727,10 @@ int main (int argc, char *argv[])
     MSG(stderr, "[%"SIZE_FMT" signature(s)]", psp_sigcnt(psp));
     MSG(stderr, " done [%.2fs].\n", SEC_SINCE(t));
   }                             /* write a log message */
-
   /* --- clean up --- */
   CLEANUP;                      /* clean up memory and close files */
   SHOWMEM;                      /* show (final) memory usage */
+
   return 0;                     /* return 'ok' */
 }  /* main() */
 

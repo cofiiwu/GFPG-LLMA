@@ -279,7 +279,7 @@ static void makelvls (ISTREE *ist)
 
 /*--------------------------------------------------------------------*/
 
-static void delete (ISTNODE *node)
+static void delete_node (ISTNODE *node)
 {                               /* --- recursively delete a subtree */
   ITEM    i, n;                 /* loop variable, number of children */
   ISTNODE **chn;                /* child node array */
@@ -293,7 +293,7 @@ static void delete (ISTNODE *node)
       chn = (ISTNODE**)((ITEM*)(node->cnts +node->size) +node->size);
     ALIGN(chn);                 /* get the child node array */
     for (i = 0; i < n; i++)     /* recursively delete the children */
-      if (chn[i]) delete(chn[i]);
+      if (chn[i]) delete_node(chn[i]);
   }
   free(node);                   /* delete the node */
 }  /* delete() */
@@ -663,7 +663,7 @@ void ist_delete (ISTREE *ist)
 
   assert(ist);                  /* check the function argument */
   if (!ist->valid)              /* if levels are not valid */
-    delete(ist->lvls[0]);       /* use recursive deletion */
+    delete_node(ist->lvls[0]);       /* use recursive deletion */
   else {                        /* if levels are valid */
     for (h = ist->height; --h >= 0; ) {
       for (node = ist->lvls[h]; node; ) {

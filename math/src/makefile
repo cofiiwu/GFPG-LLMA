@@ -15,15 +15,15 @@ SHELL    = /bin/bash
 THISDIR  = ../../math/src
 UTILDIR  = ../../util/src
 TRACTDIR = ../../tract/src
-
-CC       = gcc -std=c99
-# CC       = g++
+#$CC       = gcc -std=c99
+ CC       = g++
 CFBASE   = -Wall -Wextra -Wno-unused-parameter -Wconversion \
            -pedantic -c $(ADDFLAGS)
 CFLAGS   = $(CFBASE) -DNDEBUG -O3 -funroll-loops
 # CFLAGS   = $(CFBASE) -g
 
-LD       = gcc
+LD       = g++
+
 LDFLAGS  = $(ADDFLAGS)
 LIBS     = -lm
 

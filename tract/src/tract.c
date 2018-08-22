@@ -1320,7 +1320,7 @@ int ta_write (const TRACT *t, const ITEMBASE *base,
 
 #endif
 /*--------------------------------------------------------------------*/
-#ifndef NDEBUG
+//#ifndef NDEBUG
 
 void ta_show (TRACT *t, ITEMBASE *base)
 {                               /* --- show a transaction */
@@ -1334,7 +1334,7 @@ void ta_show (TRACT *t, ITEMBASE *base)
   printf("[%"SUPP_FMT"]\n", t->wgt);
 }  /* ta_show() */             /* finally print the trans. weight */
 
-#endif
+//#endif
 /*----------------------------------------------------------------------
   Weighted Item Functions
 ----------------------------------------------------------------------*/
@@ -1606,7 +1606,7 @@ int wta_write (const WTRACT *t, const ITEMBASE *base,
 
 #endif
 /*--------------------------------------------------------------------*/
-#ifndef NDEBUG
+//#ifndef NDEBUG
 
 void wta_show (WTRACT *t, ITEMBASE *base)
 {                               /* --- show an extended transaction */
@@ -1621,7 +1621,7 @@ void wta_show (WTRACT *t, ITEMBASE *base)
   printf(" [%"SUPP_FMT"]\n", t->wgt);
 }  /* wta_show() */             /* finally print the trans. weight */
 
-#endif
+//#endif
 /*----------------------------------------------------------------------
   Transaction Bag/Multiset Functions
 ----------------------------------------------------------------------*/
@@ -2568,8 +2568,8 @@ int tbg_ipwgt (TABAG *bag, int mode)
 }  /* tbg_ipwgt() */
 
 /*--------------------------------------------------------------------*/
-#ifndef NDEBUG
 
+//#ifndef NDEBUG
 void tbg_show (TABAG *bag)
 {                               /* --- show a transaction bag */
   TID i;                        /* loop variable */
@@ -2585,7 +2585,7 @@ void tbg_show (TABAG *bag)
          bag->cnt, bag->wgt);   /* finally print transaction counter */
 }  /* tbg_show() */             /* and total transaction weight */
 
-#endif
+//#endif
 /*----------------------------------------------------------------------
   Surrogate Generation Functions
 ----------------------------------------------------------------------*/

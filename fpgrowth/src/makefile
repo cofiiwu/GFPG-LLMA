@@ -23,19 +23,21 @@ MATHDIR  = ../../math/src
 TRACTDIR = ../../tract/src
 APRIDIR  = ../../apriori/src
 
-CC       = gcc -std=c99
+CC       = g++ -std=c++11
 # CC       = g++
 CFBASE   = -Wall -Wextra -Wno-unused-parameter -Wconversion \
-           -pedantic -c $(ADDFLAGS)
-CFLAGS   = $(CFBASE) -DNDEBUG -O3 -funroll-loops
+           -pedantic -c $(ADDFLAGS) -fpermissive
+#CFLAGS   = $(CFBASE) -DNDEBUG -O0 -g  -funroll-loops -std=c11
+CFLAGS   = $(CFBASE) -O3  -funroll-loops 
+#CFLAGS   = $(CFBASE) -DNDEBUG -O3 -g -funroll-loops
 # CFLAGS   = $(CFBASE) -DNDEBUG -O3 -funroll-loops -DBENCH
 # CFLAGS   = $(CFBASE) -g
 # CFLAGS   = $(CFBASE) -g -DSTORAGE
-INCS     = -I$(UTILDIR) -I$(MATHDIR) -I$(TRACTDIR) -I$(APRIDIR)
-
-LD       = gcc
-LDFLAGS  = $(ADDFLAGS)
-LIBS     = -lm
+INCS     = -I$(UTILDIR) -I$(MATHDIR) -I$(TRACTDIR) -I$(APRIDIR) -I/usr/local/cuda/include
+#LD       = g++ 
+LD		= nvcc
+LDFLAGS  = $(ADDFLAGS) -pg  -arch=sm_61
+LIBS     = -lm -L/usr/local/cuda/lib64 -lcudart -lcuda -lcudadevrt  
 
 # ADDOBJS  = $(UTILDIR)/storage.o
 
@@ -51,7 +53,7 @@ OBJS     = $(UTILDIR)/memsys.o   $(UTILDIR)/arrays.o   \
            $(UTILDIR)/scform.o   $(MATHDIR)/gamma.o    \
            $(MATHDIR)/chi2.o     $(MATHDIR)/ruleval.o  \
            $(TRACTDIR)/clomax.o  $(TRACTDIR)/repcm.o   \
-           $(TRACTDIR)/fim16.o   $(APRIDIR)/istree.o $(ADDOBJS)
+           $(TRACTDIR)/fim16.o   $(APRIDIR)/istree.o $(ADDOBJS) gpu_fpg.o
 
 FPGOBJS  = $(OBJS)               $(TRACTDIR)/taread.o  \
            $(TRACTDIR)/patspec.o fpgmain.o
@@ -90,6 +92,11 @@ pspmain.o:    fpgpsp.c makefile
 
 pspmain.d:    fpgpsp.c
 	$(CC) -MM $(CFLAGS) $(INCS) -DFPGPSP_MAIN fpgpsp.c > pspmain.d
+
+gpu_fpg.o: gpu_fpg.cu fpgrowth.h
+	nvcc -I/home/lennox/CUDA-SAMPLE/NVIDIA_CUDA-9.0_Samples/common/inc $(INCS) -Icub/ -O3 -std=c++11 -lineinfo   -v  -arch=sm_61  -rdc=true -dlink  -c gpu_fpg.cu -o $@
+
+#	nvcc -I/home/lennox/CUDA-SAMPLE/NVIDIA_CUDA-8.0_Samples/common/inc -I/home/lennox/work/fp-growth-brog/fpgrowth/src/cudpp-2.3/cudpp/include $(INCS) -Icub/ -O0 -G -g  -lineinfo   -v -optf /home/lennox/work/fpg-lvl-cuda/opt  --library-path=cudpp-2.3/cudpp/lib --library=cudpp_hash --library=cudpp -arch=sm_50  -rdc=true -dlink  -c gpu_fpg.cu -o $@
 
 #-----------------------------------------------------------------------
 # FP-growth as a module

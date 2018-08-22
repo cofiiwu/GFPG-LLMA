@@ -18,16 +18,16 @@
 SHELL   = /bin/bash
 THISDIR = ../../util/src
 
-CC      = gcc -std=c99
-# CC      = g++
+#CC      = gcc -std=c99
+ CC      = g++
 CFBASE  = -Wall -Wextra -Wno-unused-parameter -Wconversion \
-          -pedantic -c $(ADDFLAGS)
+          -pedantic -c $(ADDFLAGS) -fpermissive
 CFLAGS  = $(CFBASE) -DNDEBUG -O3 -funroll-loops
 # CFLAGS  = $(CFBASE) -g
 # CFLAGS  = $(CFBASE) -g -DSTORAGE
 
-LD      = gcc
-# LD      = g++
+#LD      = gcc
+ LD      = g++
 LDFLAGS = $(ADDFLAGS)
 LIBS    = 
 

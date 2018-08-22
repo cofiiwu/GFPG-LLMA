@@ -21,19 +21,19 @@ THISDIR = ../../tract/src
 UTILDIR = ../../util/src
 MATHDIR = ../../math/src
 
-CC      = gcc -std=c99
-# CC      = g++
+#CC      = gcc -std=c99
+ CC      = g++
 CFBASE  = -Wall -Wextra -Wno-unused-parameter -Wconversion \
-          -pedantic -c $(ADDFLAGS)
-CFLAGS  = $(CFBASE) -DNDEBUG -O3 -funroll-loops
+          -pedantic -c $(ADDFLAGS) -fpermissive
+CFLAGS  = $(CFBASE) -DNDEBUG -O3 -g -funroll-loops
 # CFLAGS  = $(CFBASE) -DNDEBUG -O3 -funroll-loops -DALIGN8
 # CFLAGS  = $(CFBASE) -g
 # CFLAGS  = $(CFBASE) -g -DSTORAGE
 # CFLAGS  = $(CFBASE) -g -DALIGN8
 INCS    = -I$(THISDIR) -I$(UTILDIR) -I$(MATHDIR)
 
-LD      = gcc
-# LD      = g++
+#LD      = gcc
+ LD      = g++
 LDFLAGS = $(ADDFLAGS)
 LIBS    = -lm
 

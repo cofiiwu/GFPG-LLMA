@@ -5,3 +5,10 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 Memory allocation overhead-aware GPU FP-growth(MAOA-GPFG) is a GPU-accelerated FP-growth.
 The implementation is for reviewing of IEEE BigData 2018
+
+========
+Building
+========
+The make file is located in fpgrowth/src/makefile. You must modify some paths.
+$> cd fpgrowth/src/
+$>make -f makefile

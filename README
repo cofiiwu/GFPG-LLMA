@@ -12,3 +12,23 @@ Building
 The make file is located in fpgrowth/src/makefile. You must modify some paths.
 $> cd fpgrowth/src/
 $>make -f makefile
+
+
+==========================
+Block size and load factor
+==========================
+There are two kernel functions in the program. According to our experiment
+results, the block size of kernel_cal_offset dose not affect the performance
+significantly. However, the block size of kernel_fpg_iter_gtree affect the
+performance significantly, and the sizes depends on data sets. 
+
+The load factor also affects the utilization and the scalability of memory.
+
+We list the block sizes and load factors in our experiments for each dataset
+
+Dataset	    	  HASH_LOAD_FACTOR	    Block size
+------------------------------------------------------
+accident		1.3			512
+retail			1.0			32
+kosarak			1.0			1024
+webdoc			1.0			512

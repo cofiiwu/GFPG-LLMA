@@ -13,7 +13,6 @@ The make file is located in fpgrowth/src/makefile. You must modify some paths.
 $> cd fpgrowth/src/
 $>make -f makefile
 
-
 ==========================
 Block size and load factor
 ==========================
@@ -32,3 +31,4 @@ accident		1.3			512
 retail			1.0			32
 kosarak			1.0			1024
 webdoc			1.0			512
+

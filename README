@@ -18,8 +18,8 @@ Block size and load factor
 ==========================
 There are two kernel functions in the program. According to our experiment
 results, the block size of kernel_cal_offset dose not affect the performance
-significantly. However, the block size of kernel_fpg_iter_gtree affect the
-performance significantly, and the sizes depends on data sets. 
+significantly. However, the block sizes of kernel_fpg_iter_gtree affect the
+performance significantly, and the sizes depend on data sets. 
 
 The load factor also affects the utilization and the scalability of memory.
 

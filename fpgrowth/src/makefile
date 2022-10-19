@@ -26,9 +26,12 @@ APRIDIR  = ../../apriori/src
 CC       = g++ -std=c++11
 # CC       = g++
 CFBASE   = -Wall -Wextra -Wno-unused-parameter -Wconversion \
-           -pedantic -c $(ADDFLAGS) -fpermissive
-#CFLAGS   = $(CFBASE) -DNDEBUG -O0 -g  -funroll-loops -std=c11
-CFLAGS   = $(CFBASE) -O3  -funroll-loops 
+           -pedantic -c $(ADDFLAGS) -fno-unroll-loops 
+CFBASE	+=-fpermissive
+CFLAGS   = $(CFBASE)  -O3 -g  -std=c++11
+#CFLAGS	+= -funroll-loops
+#CFLAGS   = $(CFBASE) -DNDEBUG -O3 -g  -funroll-loops -std=c++11
+#CFLAGS   = $(CFBASE) -O3  -funroll-loops  
 #CFLAGS   = $(CFBASE) -DNDEBUG -O3 -g -funroll-loops
 # CFLAGS   = $(CFBASE) -DNDEBUG -O3 -funroll-loops -DBENCH
 # CFLAGS   = $(CFBASE) -g

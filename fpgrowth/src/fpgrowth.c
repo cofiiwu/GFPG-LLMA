@@ -267,7 +267,7 @@ static double   *border = NULL; /* support border for filtering */
 /*----------------------------------------------------------------------
   Auxiliary Functions for Debugging
 ----------------------------------------------------------------------*/
-//#ifndef NDEBUG
+#ifndef NDEBUG
 
 static void indent (int k)
 { while (--k >= 0) printf("   "); }
@@ -362,7 +362,7 @@ static void tdt_show (TDTREE *tdt, ITEMBASE *base, int ind)
   indent(ind); printf("------\n");  /* show the nodes recursively */
 }  /* tdt_show() */
 
-//#endif  /* #ifndef NDEBUG */
+#endif  /* #ifndef NDEBUG */
 /*----------------------------------------------------------------------
   Frequent Pattern Growth (simple nodes with only successor/parent)
 ----------------------------------------------------------------------*/
@@ -1237,9 +1237,9 @@ void *cst_to_gputree(CSTREE *cst){
 	    printf("gtree galloc %d ms\n",tree_time/1000);
 	}
 	gettimeofday (&treeconv_start, NULL);
-	int *rec_cnt = malloc(sizeof(int)*cst->cnt);
+	int *rec_cnt = (int*)malloc(sizeof(int)*cst->cnt);
 	GPU_TREE_NODE* gtree_item= (GPU_TREE_NODE*)(gtree_item_base +  (((cst->cnt+1)+2)&~1));
-	cst->h_gtree = (void*) gtree_item;
+	cst->h_gtree = (GTREE_NODE*) gtree_item;
 	cst->h_gtree_itembase = gtree_item_base;
 	gtree_item_base[0]=0;
 	//the lasr element of cltree_index_pos is dummy for end of list
@@ -1248,6 +1248,7 @@ void *cst_to_gputree(CSTREE *cst){
 		//printf("gtree_item_base[%d]=%d\n",i, gtree_item_base[i]);
 	}
 
+	printf("cst->cnt: %d\n", cst->cnt);
 	memset(rec_cnt, 0 ,sizeof(int)*cst->cnt);
 	CSNODE *node;
 	CSNODE **p;
@@ -1263,14 +1264,17 @@ void *cst_to_gputree(CSTREE *cst){
 		gtree_item[base + reclen].index = 0;
 		gtree_item[base + reclen].freq = (*p)->supp;
 		(*p)->gnidx = rec_cnt[id]++;
-	//	printf("rec(%d, %d)=(%d, - )\n", id,(*p)->gnidx , pid);
+		printf("rec(%d, %d)=(%d, - )\n", id,(*p)->gnidx , pid);
 
 		p = &(*p)->sibling;
 	}
 
 	for(int i=0; i< cst->cnt;i++){
 		node = cst->heads[i].list;
-		ITEM pid = node->id;
+		//int pid = (int)node->id;
+		printf("pid: %d\n", pid);
+		pid = (int)node->id;
+		printf("pid: %d\n", pid);
 		p = &(node->children);
 		while(node){
 			p = &(node->children);
@@ -1278,7 +1282,8 @@ void *cst_to_gputree(CSTREE *cst){
 				ITEM id = (*p)->id;
 				unsigned int base = gtree_item_base[id];
 				unsigned int reclen = rec_cnt[id];
-				assert(pid < ((unsigned long long)1)<<GPUTREE_ITEM_BITS);
+				//printf("%d %llu\n", (unsigned) pid, (unsigned long long ) 1 << GPUTREE_ITEM_BITS);
+				assert(((unsigned long long) pid ) < (((unsigned long long)1)<<GPUTREE_ITEM_BITS));
 				gtree_item[base + reclen].pitem = pid;
 				assert(node->gnidx < ((unsigned long long)1)<<GPUTREE_INDEX_BITS);
 				gtree_item[base + reclen].index = node->gnidx;
@@ -1299,8 +1304,14 @@ void *cst_to_gputree(CSTREE *cst){
 		    printf("convert %d ms\n",tree_time/1000);
 	}
 
-/*
-	for(int i=0; i< cst->cnt;i++){
+
+	//int i = 0;
+	printf("cst->cnt_before_dbg: %d\n", cst->cnt);
+	int limit = cst->cnt;
+	for(int i=0 ; i < cst->cnt ; i++){
+		if(i >= limit)
+			return;
+		printf("cst->cnt: %d\n", cst->cnt);
 		printf("\n%d: ",i);
 		unsigned int base = gtree_item_base[i];
 		for(int j =0; j<rec_cnt[i];j++){
@@ -1308,8 +1319,9 @@ void *cst_to_gputree(CSTREE *cst){
 		}
 
 	}
+	return;
+	
 
-*/
 }
 
 int *item_fpa_buf;
